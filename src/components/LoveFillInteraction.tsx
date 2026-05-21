@@ -52,21 +52,22 @@ function ImageFillReveal({
   holding,
   onPointerDown,
   onPointerUp,
-  onPointerLeave,
 }: {
   image: string;
   progress: number;
   holding: boolean;
-  onPointerDown: () => void;
+  onPointerDown: (e: React.PointerEvent) => void;
   onPointerUp: () => void;
-  onPointerLeave: () => void;
 }) {
   return (
     <Box
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
-      onPointerLeave={onPointerLeave}
+      onPointerCancel={onPointerUp}
+      onMouseUp={onPointerUp}
+      onTouchEnd={onPointerUp}
       onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+      onDragStart={(e: React.DragEvent) => e.preventDefault()}
       sx={{
         position: 'relative',
         width: '100%',
@@ -79,61 +80,26 @@ function ImageFillReveal({
           : '0 4px 24px rgba(233, 30, 99, 0.15)',
         cursor: 'pointer',
         userSelect: 'none',
+        WebkitUserSelect: 'none',
         WebkitTapHighlightColor: 'transparent',
         touchAction: 'none',
         transform: holding ? 'scale(0.97)' : 'scale(1)',
         transition: 'transform 0.15s ease, box-shadow 0.2s ease',
       }}
     >
-      {/* Grayscale base */}
       <Box
         component="img"
         src={image}
-        alt=""
+        alt="Us"
+        draggable={false}
         sx={{
           width: '100%',
           display: 'block',
-          filter: 'grayscale(100%)',
           borderRadius: 3,
+          pointerEvents: 'none',
+          filter: `grayscale(${100 - progress}%)`,
         }}
       />
-      {/* Color overlay revealed from bottom */}
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          overflow: 'hidden',
-          borderRadius: 3,
-        }}
-      >
-        <Box
-          component="img"
-          src={image}
-          alt="Us with bling"
-          sx={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            clipPath: `inset(${100 - progress}% 0 0 0)`,
-            transition: 'clip-path 0.05s linear',
-          }}
-        />
-      </Box>
-      {/* Soft glow near completion */}
-      {progress > 80 && (
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 3,
-            boxShadow: `inset 0 0 ${(progress - 80) * 2}px rgba(233, 30, 99, ${(progress - 80) / 100})`,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
     </Box>
   );
 }
@@ -181,67 +147,64 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
   const [progress, setProgress] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [holding, setHolding] = useState(false);
+  const holdingRef = useRef(false);
+  const completedRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
 
   const FILL_DURATION = 2500; // ms to fill completely
-  const DRAIN_SPEED = 0.15; // fraction of fill speed for draining
+  const DRAIN_RATE = 25; // percent per second drain when released
 
-  const tick = useCallback(
-    (timestamp: number) => {
+  // Keep completedRef in sync with state
+  useEffect(() => { completedRef.current = completed; }, [completed]);
+
+  // Defensive stop function
+  const stopHolding = useCallback(() => {
+    holdingRef.current = false;
+    setHolding(false);
+    lastTimeRef.current = 0;
+  }, []);
+
+  // Single RAF loop that handles both filling and draining
+  useEffect(() => {
+    const tick = (timestamp: number) => {
+      if (completedRef.current) return;
+
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const delta = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
 
       setProgress((prev) => {
-        const increment = (delta / FILL_DURATION) * 100;
-        const next = Math.min(prev + increment, 100);
-        return next;
+        if (holdingRef.current) {
+          // Fill
+          const increment = (delta / FILL_DURATION) * 100;
+          const next = Math.min(prev + increment, 100);
+          if (next >= 100) return 100;
+          return next;
+        } else {
+          // Drain slowly
+          if (prev <= 0) return 0;
+          const drain = (DRAIN_RATE * delta) / 1000;
+          return Math.max(prev - drain, 0);
+        }
       });
 
       rafRef.current = requestAnimationFrame(tick);
-    },
-    [FILL_DURATION]
-  );
+    };
 
-  const startFilling = useCallback(() => {
-    if (completed) return;
-    setHolding(true);
-    lastTimeRef.current = 0;
     rafRef.current = requestAnimationFrame(tick);
-  }, [completed, tick]);
-
-  const stopFilling = useCallback(() => {
-    if (completed) return;
-    setHolding(false);
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
-    }
-  }, [completed]);
-
-  // Drain slowly when not holding
-  useEffect(() => {
-    if (holding || completed) return;
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev <= 0) return 0;
-        const drain = (100 / FILL_DURATION) * 16 * DRAIN_SPEED * 100;
-        return Math.max(prev - drain * 0.04, 0);
-      });
-    }, 16);
-    return () => clearInterval(interval);
-  }, [holding, completed, FILL_DURATION, DRAIN_SPEED]);
+    };
+  }, [FILL_DURATION, DRAIN_RATE]);
 
   // Completion check
   useEffect(() => {
     if (progress >= 100 && !completed) {
-      setCompleted(true);
+      holdingRef.current = false;
       setHolding(false);
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
+      setCompleted(true);
       // Confetti burst
       setTimeout(() => {
         confetti({
@@ -262,12 +225,38 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
     }
   }, [progress, completed]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+  // PointerDown on the image starts holding
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (completedRef.current) return;
+    holdingRef.current = true;
+    setHolding(true);
+    lastTimeRef.current = 0;
   }, []);
+
+  // Global listeners for defensive stop
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) stopHolding();
+    };
+
+    window.addEventListener('pointerup', stopHolding);
+    window.addEventListener('pointercancel', stopHolding);
+    window.addEventListener('mouseup', stopHolding);
+    window.addEventListener('touchend', stopHolding);
+    window.addEventListener('blur', stopHolding);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pointerup', stopHolding);
+      window.removeEventListener('pointercancel', stopHolding);
+      window.removeEventListener('mouseup', stopHolding);
+      window.removeEventListener('touchend', stopHolding);
+      window.removeEventListener('blur', stopHolding);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stopHolding]);
 
   return (
     <Box sx={{ width: '100%', mt: 2 }}>
@@ -284,9 +273,8 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
                 image={image}
                 progress={progress}
                 holding={holding}
-                onPointerDown={startFilling}
-                onPointerUp={stopFilling}
-                onPointerLeave={stopFilling}
+                onPointerDown={handlePointerDown}
+                onPointerUp={stopHolding}
               />
             </Box>
 
@@ -308,7 +296,6 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
                   width: `${progress}%`,
                   background: 'linear-gradient(90deg, #f8bbd0, #e91e63)',
                   borderRadius: 3,
-                  transition: 'width 0.05s linear',
                 }}
               />
             </Box>
