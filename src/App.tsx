@@ -30,7 +30,7 @@ export default function App() {
         </Typography>
         <Box
           component="img"
-          src="/assets/us-in-the-woods.png"
+          src={`${import.meta.env.BASE_URL}assets/us-in-the-woods.png`}
           alt="Us together in the woods, surrounded by nature"
           sx={{
             width: '100%',
@@ -61,7 +61,7 @@ export default function App() {
         </Typography>
         <Box
           component="img"
-          src="/assets/us-cheers.png"
+          src={`${import.meta.env.BASE_URL}assets/us-cheers.png`}
           alt="Us cheering together, celebrating our love"
           sx={{
             width: '100%',
@@ -98,9 +98,9 @@ export default function App() {
         </Typography>
       <ImageCarousel
           images={[
-            { src: '/assets/us-in-waterfall.png', alt: 'Us at a beautiful waterfall' },
-            { src: '/assets/us-at-gorge.png', alt: 'Us hiking at the gorge' },
-            { src: '/assets/us-in-new-resto.png', alt: 'Us trying a new restaurant together' },
+            { src: `${import.meta.env.BASE_URL}assets/us-in-waterfall.png`, alt: 'Us at a beautiful waterfall' },
+            { src: `${import.meta.env.BASE_URL}assets/us-at-gorge.png`, alt: 'Us hiking at the gorge' },
+            { src: `${import.meta.env.BASE_URL}assets/us-in-new-resto.png`, alt: 'Us trying a new restaurant together' },
           ]}
         />
       </PageSection>
@@ -132,7 +132,7 @@ export default function App() {
         </Typography>
         <Box
           component="img"
-          src="/assets/team-m.png"
+          src={`${import.meta.env.BASE_URL}assets/team-m.png`}
           alt="Team M - us together as the best team"
           sx={{
             width: '100%',
@@ -166,8 +166,8 @@ export default function App() {
           Now solve this puzzle for a special reward!
         </Typography>
         <SlidingPuzzle
-          puzzleImage="/assets/us-with-bling.png"
-          rewardImage="/assets/reward.png"
+          puzzleImage={`${import.meta.env.BASE_URL}assets/us-with-bling.png`}
+          rewardImage={`${import.meta.env.BASE_URL}assets/reward.png`}
           cols={3}
           rows={4}
         />
