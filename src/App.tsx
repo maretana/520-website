@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import BackgroundDecor from './components/BackgroundDecor';
 import PageSection from './components/PageSection';
 import ImageCarousel from './components/ImageCarousel';
-import SlidingPuzzle from './components/SlidingPuzzle';
+import LoveFillInteraction from './components/LoveFillInteraction';
 
 export default function App() {
   return (
@@ -160,16 +160,14 @@ export default function App() {
           One last little surprise… 🎁
         </Typography>
         <Typography variant="body1" sx={{ textAlign: 'center', mb: 1 }}>
-          Cheers to one more Valentine's Day full of love, care, and fun.
+        Cheers to one more Valentine's Day full of love, care, and fun.
         </Typography>
-        <Typography variant="body1" sx={{ textAlign: 'center', mb: 3 }}>
-          Now solve this puzzle for a special reward!
+           <Typography variant="body1" sx={{ textAlign: 'center', mb: 3 }}>
+          Press and hold the photo below for a special surprise 💕
         </Typography>
-        <SlidingPuzzle
-          puzzleImage={`${import.meta.env.BASE_URL}assets/us-with-bling.png`}
+        <LoveFillInteraction
+          image={`${import.meta.env.BASE_URL}assets/us-with-bling.png`}
           rewardImage={`${import.meta.env.BASE_URL}assets/reward.png`}
-          cols={3}
-          rows={4}
         />
       </PageSection>
     </Box>
