@@ -57,15 +57,18 @@ function ImageFillReveal({
   progress: number;
   holding: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
-  onPointerUp: () => void;
+  onPointerUp: (e?: React.PointerEvent | React.MouseEvent | React.TouchEvent) => void;
 }) {
   return (
     <Box
+      tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onMouseUp={onPointerUp}
       onTouchEnd={onPointerUp}
+      onPointerLeave={onPointerUp}
+      onMouseLeave={onPointerUp}
       onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
       onDragStart={(e: React.DragEvent) => e.preventDefault()}
       sx={{
@@ -97,9 +100,34 @@ function ImageFillReveal({
           display: 'block',
           borderRadius: 3,
           pointerEvents: 'none',
-          filter: `grayscale(${100 - progress}%)`,
+          filter: 'grayscale(100%)',
         }}
       />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          overflow: 'hidden',
+          borderRadius: 3,
+          pointerEvents: 'none',
+        }}
+      >
+        <Box
+          component="img"
+          src={image}
+          alt=""
+          draggable={false}
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            pointerEvents: 'none',
+            clipPath: `inset(${100 - progress}% 0 0 0)`,
+          }}
+        />
+      </Box>
     </Box>
   );
 }
@@ -230,10 +258,29 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
     e.preventDefault();
     e.stopPropagation();
     if (completedRef.current) return;
+    (e.currentTarget as HTMLElement).focus?.();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch (_) { /* ignore */ }
     holdingRef.current = true;
     setHolding(true);
     lastTimeRef.current = 0;
   }, []);
+
+  // Stop holding with event context (releases pointer capture)
+  const stopHoldingFromEvent = useCallback((e?: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      try {
+        const target = e.currentTarget as HTMLElement;
+        if (target && 'releasePointerCapture' in target && 'pointerId' in e) {
+          target.releasePointerCapture((e as React.PointerEvent).pointerId);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    stopHolding();
+  }, [stopHolding]);
 
   // Global listeners for defensive stop
   useEffect(() => {
@@ -247,6 +294,7 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
     window.addEventListener('touchend', stopHolding);
     window.addEventListener('blur', stopHolding);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('mouseup', stopHolding);
 
     return () => {
       window.removeEventListener('pointerup', stopHolding);
@@ -255,6 +303,7 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
       window.removeEventListener('touchend', stopHolding);
       window.removeEventListener('blur', stopHolding);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('mouseup', stopHolding);
     };
   }, [stopHolding]);
 
@@ -274,7 +323,7 @@ export default function LoveFillInteraction({ image, rewardImage }: LoveFillInte
                 progress={progress}
                 holding={holding}
                 onPointerDown={handlePointerDown}
-                onPointerUp={stopHolding}
+                onPointerUp={stopHoldingFromEvent}
               />
             </Box>
 
